@@ -21,9 +21,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
+import android.media.CamcorderProfile;
+import android.media.MediaRecorder;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.util.DisplayMetrics;
@@ -37,6 +40,9 @@ import android.widget.Toast;
 
 import com.example.android.common.logger.Log;
 
+import java.io.File;
+import java.io.IOException;
+
 /**
  * Provides UI for the screen capture.
  */
@@ -48,6 +54,7 @@ public class ScreenCaptureFragment extends Fragment implements View.OnClickListe
     private static final String STATE_RESULT_DATA = "result_data";
 
     private static final int REQUEST_MEDIA_PROJECTION = 1;
+    private static final int RECORD_AUDIO = 10001;
 
     private int mScreenDensity;
 
@@ -56,6 +63,7 @@ public class ScreenCaptureFragment extends Fragment implements View.OnClickListe
 
     private Surface mSurface;
     private MediaProjection mMediaProjection;
+    private MediaRecorder mMediaRecorder;
     private VirtualDisplay mVirtualDisplay;
     private MediaProjectionManager mMediaProjectionManager;
     private Button mButtonToggle;
@@ -140,7 +148,7 @@ public class ScreenCaptureFragment extends Fragment implements View.OnClickListe
     @Override
     public void onPause() {
         super.onPause();
-        stopScreenCapture();
+//        stopScreenCapture();
     }
 
     @Override
@@ -165,6 +173,7 @@ public class ScreenCaptureFragment extends Fragment implements View.OnClickListe
         if (mSurface == null || activity == null) {
             return;
         }
+        setupRecorder();
         if (mMediaProjection != null) {
             setUpVirtualDisplay();
         } else if (mResultCode != 0 && mResultData != null) {
@@ -179,6 +188,33 @@ public class ScreenCaptureFragment extends Fragment implements View.OnClickListe
         }
     }
 
+    private void setupRecorder(){
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        mMediaRecorder = new MediaRecorder();
+        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.DEFAULT);
+        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+        CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
+        profile.videoFrameHeight = metrics.heightPixels;
+        profile.videoFrameWidth = metrics.widthPixels;
+        mMediaRecorder.setProfile(profile);
+        File file = new File(Environment.getExternalStorageDirectory() + "/videoff.mp4");
+        if (!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        mMediaRecorder.setOutputFile(file.getPath());
+
+        try {
+            mMediaRecorder.prepare();
+            mMediaRecorder.start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void setUpVirtualDisplay() {
         Log.i(TAG, "Setting up a VirtualDisplay: " +
                 mSurfaceView.getWidth() + "x" + mSurfaceView.getHeight() +
@@ -186,17 +222,23 @@ public class ScreenCaptureFragment extends Fragment implements View.OnClickListe
         mVirtualDisplay = mMediaProjection.createVirtualDisplay("ScreenCapture",
                 mSurfaceView.getWidth(), mSurfaceView.getHeight(), mScreenDensity,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                mSurface, null, null);
+                mMediaRecorder.getSurface(), null, null);
         mButtonToggle.setText(R.string.stop);
     }
 
     private void stopScreenCapture() {
-        if (mVirtualDisplay == null) {
-            return;
-        }
-        mVirtualDisplay.release();
-        mVirtualDisplay = null;
-        mButtonToggle.setText(R.string.start);
+//        if (mVirtualDisplay == null) {
+//            return;
+//        }
+//        mMediaRecorder.stop();
+//        mMediaProjection.stop();
+//        mVirtualDisplay.release();
+//        mVirtualDisplay = null;
+//        mButtonToggle.setText(R.string.start);
+
+        mMediaRecorder.stop();
+        mMediaRecorder.release();
+        mMediaRecorder = null;
     }
 
 }
